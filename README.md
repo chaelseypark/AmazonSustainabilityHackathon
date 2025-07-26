@@ -21,9 +21,9 @@ We aim to predict future tree loss in the Amazon rainforest (e.g., 2026) using p
 
 # 🛠️ Tech Stack
 
-Frontend: React
+Frontend: React, Next.js
 
-Backend:	Python, FastAPI, Marshmallow, Rasterio, GeoTIFF, DeepForest
+Backend:	Python, Flask, Marshmallow, Rasterio, GeoTIFF, DeepForest
 
 ML Model:	weecology/deepforest-tree (pretrained model), Data	Global Forest Watch GeoTIFFs, Google Earth Engine
 
