@@ -1,5 +1,6 @@
-"use client";
-import { useState, useEffect } from "react";
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
 import {
   GoogleMap,
   useLoadScript,
@@ -7,16 +8,48 @@ import {
 } from "@react-google-maps/api";
 
 export default function HomePage() {
+  const [yearsAhead, setYearsAhead] = useState(1);
+  const modalRef = useRef(null);
+  const pos = useRef({ x: 50, y: 100 }); // initial top-left position
+  const offset = useRef({ x: 0, y: 0 });
+  const dragging = useRef(false);
+  const [heatmapPoints, setHeatmapPoints] = useState([]);
+  const center = { lat: -3.4653, lng: -62.2159 };
+
+  const onMouseDown = (e) => {
+    dragging.current = true;
+    offset.current = {
+      x: e.clientX - pos.current.x,
+      y: e.clientY - pos.current.y,
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  const onMouseMove = (e) => {
+    if (!dragging.current) return;
+    pos.current = {
+      x: e.clientX - offset.current.x,
+      y: e.clientY - offset.current.y,
+    };
+    if (modalRef.current) {
+      modalRef.current.style.left = `${pos.current.x}px`;
+      modalRef.current.style.top = `${pos.current.y}px`;
+    }
+  };
+
+  const onMouseUp = () => {
+    dragging.current = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+
   const { isLoaded } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
     libraries: ["visualization"],
   });
 
-  const [yearsAhead, setYearsAhead] = useState(1);
-  const [heatmapPoints, setHeatmapPoints] = useState([]);
-  const center = { lat: -3.4653, lng: -62.2159 };
-
-  // Dummy prediction data by year
+  // 🔥 Dummy prediction data (replace with ML model output)
   const heatmapDataByYear = {
     1: [
       { lat: -3.2, lng: -60.0 },
@@ -49,7 +82,6 @@ export default function HomePage() {
     ],
   };
 
-  // ✅ Only run on client when Maps API is loaded
   useEffect(() => {
     if (typeof window !== "undefined" && window.google && isLoaded) {
       const points = (heatmapDataByYear[yearsAhead] || []).map(
@@ -62,47 +94,53 @@ export default function HomePage() {
   if (!isLoaded) return <div>Loading Map...</div>;
 
   return (
-    <div className="flex w-full h-screen">
-      {/* Sidebar */}
-      <div className="w-64 p-4 bg-white shadow z-10">
-        <h2 className="text-xl font-bold mb-4">Prediction Settings</h2>
+    <div className="w-screen h-screen relative">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
+      {/* Fullscreen Map */}
+      <GoogleMap
+        mapContainerStyle={{ width: "100%", height: "100%" }}
+        center={center}
+        zoom={5}
+        mapTypeId="satellite"
+      >
+        {heatmapPoints.length > 0 && (
+          <HeatmapLayer
+            data={heatmapPoints}
+            options={{ radius: 30, opacity: 0.6 }}
+          />
+        )}
+      </GoogleMap>
 
-        <label htmlFor="yearSelect" className="block mb-2 font-medium">
-          Years into the future:
+      {/* Floating Sidebar Modal */}
+      <div
+        ref={modalRef}
+        className="absolute bg-white p-5 rounded-2xl shadow-2xl w-80 z-50 font-[Inter] text-gray-800 overflow-y-auto max-h-[90vh] scrollbar-thin scrollbar-thumb-green-400 scrollbar-track-green-100"
+        style={{ top: pos.current.y, left: pos.current.x }}
+      >
+        <div
+          className="cursor-move bg-green-50 px-4 py-3 rounded-t-2xl font-bold text-green-700 shadow-sm text-center"
+          onMouseDown={onMouseDown}
+        >
+          <div className="text-sm tracking-wide uppercase text-green-600">DeforestAI</div>
+          <div className="text-lg mt-1">Prediction Settings</div>
+        </div>
+
+        <label htmlFor="yearSlider" className="block mt-6 mb-2 text-base font-medium">
+          Years into the future: <span className="text-green-600 font-semibold">{yearsAhead}</span>
         </label>
-        <select
-          id="yearSelect"
+        <input
+          id="yearSlider"
+          type="range"
+          min="1"
+          max="5"
           value={yearsAhead}
           onChange={(e) => setYearsAhead(parseInt(e.target.value))}
-          className="w-full border border-gray-300 rounded px-3 py-2"
-        >
-          {[1, 2, 3, 4, 5].map((year) => (
-            <option key={year} value={year}>
-              {year} {year === 1 ? "year" : "years"}
-            </option>
-          ))}
-        </select>
+          className="w-full accent-green-500"
+        />
 
         <p className="mt-4 text-sm text-gray-600">
-          Showing predictions for: <strong>{2025 + yearsAhead}</strong>
+          Showing predictions for: <strong className="text-green-700">{2025 + yearsAhead}</strong>
         </p>
-      </div>
-
-      {/* Map */}
-      <div className="flex-1">
-        <GoogleMap
-          mapContainerStyle={{ width: "100%", height: "100%" }}
-          center={center}
-          zoom={5}
-          mapTypeId="satellite"
-        >
-          {heatmapPoints.length > 0 && (
-            <HeatmapLayer
-              data={heatmapPoints}
-              options={{ radius: 30, opacity: 0.6 }}
-            />
-          )}
-        </GoogleMap>
       </div>
     </div>
   );
