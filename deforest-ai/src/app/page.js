@@ -15,6 +15,8 @@ export default function HomePage() {
   const dragging = useRef(false);
   const [heatmapPoints, setHeatmapPoints] = useState([]);
   const center = { lat: -3.4653, lng: -62.2159 };
+  const [map, setMap] = useState(null);
+  const [zoom, setZoom] = useState(5);
 
   const onMouseDown = (e) => {
     dragging.current = true;
@@ -83,11 +85,46 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined" && window.google && isLoaded) {
-      const points = (heatmapDataByYear[yearsAhead] || []).map(
-        (coord) => new window.google.maps.LatLng(coord.lat, coord.lng)
-      );
-      setHeatmapPoints(points);
+    const fetchSeverity = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:5000/api/calculations/severity", {
+
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            years_ahead: yearsAhead,
+            location: {
+              latitude: -3.5,
+              longitude: -62.1,
+            },
+          }),
+        });
+
+        const data = await response.json();
+        const severity = data.severity || 0.1;
+
+        const basePoints = [
+          { lat: -3.2, lng: -60.0 },
+          { lat: -3.5, lng: -61.5 },
+          { lat: -4.0, lng: -62.2 },
+          { lat: -4.2, lng: -63.1 },
+        ];
+
+        const weightedPoints = basePoints.map((coord) => ({
+          location: new window.google.maps.LatLng(coord.lat, coord.lng),
+          weight: severity * 10,
+        }));
+
+        setHeatmapPoints(weightedPoints);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    if (isLoaded && typeof window !== "undefined" && window.google) {
+      fetchSeverity();
     }
   }, [yearsAhead, isLoaded]);
 
@@ -100,15 +137,26 @@ export default function HomePage() {
       <GoogleMap
         mapContainerStyle={{ width: "100%", height: "100%" }}
         center={center}
-        zoom={5}
+        zoom={zoom}
         mapTypeId="satellite"
+        onLoad={(mapInstance) => {
+          setMap(mapInstance);
+          setZoom(mapInstance.getZoom());
+        }}
+        onZoomChanged={() => {
+          if (map) {
+            setZoom(map.getZoom());
+          }
+        }}
       >
-        {heatmapPoints.length > 0 && (
-          <HeatmapLayer
-            data={heatmapPoints}
-            options={{ radius: 30, opacity: 0.6 }}
-          />
-        )}
+      <HeatmapLayer
+        data={heatmapPoints}
+        options={{
+          dissipating: false,
+          radius: 5000,
+          opacity: 0.6,
+        }}
+      />
       </GoogleMap>
 
       {/* Floating Sidebar Modal */}
