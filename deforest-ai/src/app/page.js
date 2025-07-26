@@ -82,6 +82,7 @@ export default function HomePage() {
     ],
   };
 
+
   useEffect(() => {
     if (typeof window !== "undefined" && window.google && isLoaded) {
       const points = (heatmapDataByYear[yearsAhead] || []).map(
